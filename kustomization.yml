@@ -1,0 +1,6 @@
+secretGenerator:
+- name: phone-journal-server-secret
+  options:
+      disableNameSuffixHash: true
+  envs:
+  - server.env
