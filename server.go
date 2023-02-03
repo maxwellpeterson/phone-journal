@@ -31,6 +31,8 @@ const (
 	whisperNumChans = 1
 	// Url path for recording callback
 	recordingPath = "/recording"
+	// Maximum length of title string used in Notion
+	maxTitleLen = 32
 )
 
 type config struct {
@@ -210,7 +212,7 @@ func uploadTranscript(ctx context.Context, cfg config, transcript string) error 
 			},
 			"Title": notion.DatabasePageProperty{
 				Title: []notion.RichText{
-					{Text: &notion.Text{Content: "Test!"}},
+					{Text: &notion.Text{Content: transcriptTitle(transcript)}},
 				},
 			},
 		},
@@ -221,6 +223,14 @@ func uploadTranscript(ctx context.Context, cfg config, transcript string) error 
 		},
 	})
 	return err
+}
+
+func transcriptTitle(transcript string) string {
+	runes := []rune(transcript)
+	if len(runes) <= maxTitleLen {
+		return transcript
+	}
+	return string(runes[:maxTitleLen]) + "..."
 }
 
 // Snippet adapted from:
