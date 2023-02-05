@@ -17,11 +17,14 @@ spec:
       containers:
       - name: phone-journal-server
         image: ghcr.io/maxwellpeterson/phone-journal-server:main
+        imagePullPolicy: Always
         ports:
         - containerPort: 80
         env:
         - name: GIN_MODE
           value: release
+        - name: MODEL_FILE
+          value: ggml-tiny.en.bin
         envFrom:
         - secretRef:
             name: phone-journal-server-secret

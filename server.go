@@ -25,8 +25,6 @@ import (
 )
 
 const (
-	// File path for whisper model
-	modelPath = "ggml-small.en.bin"
 	// Whisper requires a single-channel audio file
 	whisperNumChans = 1
 	// Url path for recording callback
@@ -36,6 +34,7 @@ const (
 )
 
 type config struct {
+	ModelFile        string   `env:"MODEL_FILE,required"`
 	ExternalHostname string   `env:"EXTERNAL_HOSTNAME,required"`
 	CallerWhitelist  []string `env:"CALLER_WHITELIST,required"`
 	TwilioAccountSid string   `env:"TWILIO_ACCOUNT_SID,required"`
@@ -50,7 +49,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	model, err := whisper.New(modelPath)
+	model, err := whisper.New(cfg.ModelFile)
 	if err != nil {
 		log.Fatal(errors.Wrap(err, "create whisper model failed"))
 	}
