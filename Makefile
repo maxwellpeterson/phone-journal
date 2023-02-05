@@ -15,4 +15,10 @@ manifest:
 secret:
 	kubectl apply -k . -n phone-journal
 
-.PHONY: image tunnel start manifest secret
+redeploy:
+	kubectl rollout restart -n phone-journal deploy/phone-journal-server-deployment
+
+klogs:
+	kubectl logs deploy/phone-journal-server-deployment -n phone-journal --follow
+
+.PHONY: image tunnel start manifest secret redeploy klogs
