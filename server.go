@@ -90,36 +90,41 @@ func main() {
 		}
 
 		recordingUrl := c.Request.PostForm.Get("RecordingUrl")
-		recording, err := downloadRecording(cfg, recordingUrl)
-		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
-			return
-		}
-
-		resampled, err := resampleRecording(recording)
-		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
-			return
-		}
-
-		transcript, err := transcribeRecording(model, resampled)
-		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
-			return
-		}
-		fmt.Printf("Transcript: %s\n", transcript)
-
-		if err := uploadTranscript(c.Request.Context(), cfg, transcript); err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
-		} else {
-			c.String(http.StatusOK, "Thanks!")
-		}
+		go processRecording(cfg, model, recordingUrl)
+		c.String(http.StatusOK, "Thanks!")
 	})
 
 	router.Run(":80")
 }
 
+func processRecording(cfg config, model whisper.Model, url string) {
+	recording, err := downloadRecording(cfg, url)
+	if err != nil {
+		fmt.Printf("download recording failed: %v\n", err)
+		return
+	}
+
+	resampled, err := resampleRecording(recording)
+	if err != nil {
+		fmt.Printf("resample recording failed: %v\n", err)
+		return
+	}
+
+	transcript, err := transcribeRecording(model, resampled)
+	if err != nil {
+		fmt.Printf("transcribe recording failed: %v\n", err)
+		return
+	}
+	fmt.Printf("Transcript: %s\n", transcript)
+
+	if err := uploadTranscript(context.Background(), cfg, transcript); err != nil {
+		fmt.Printf("upload transcript failed: %v\n", err)
+	}
+}
+
 func downloadRecording(cfg config, url string) (*bytes.Reader, error) {
+	defer timer("download recording")()
+
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -146,6 +151,8 @@ func downloadRecording(cfg config, url string) (*bytes.Reader, error) {
 }
 
 func resampleRecording(recording io.ReadSeeker) (*bytes.Reader, error) {
+	defer timer("resample recording")()
+
 	streamer, format, err := bwav.Decode(recording)
 	if err != nil {
 		return nil, err
@@ -170,6 +177,8 @@ func resampleRecording(recording io.ReadSeeker) (*bytes.Reader, error) {
 }
 
 func transcribeRecording(model whisper.Model, recording io.ReadSeeker) (string, error) {
+	defer timer("transcribe recording")()
+
 	dec := gwav.NewDecoder(recording)
 	buf, err := dec.FullPCMBuffer()
 	if err != nil {
@@ -199,6 +208,8 @@ func transcribeRecording(model whisper.Model, recording io.ReadSeeker) (string, 
 }
 
 func uploadTranscript(ctx context.Context, cfg config, transcript string) error {
+	defer timer("upload transcript")()
+
 	notionClient := notion.NewClient(cfg.NotionAuthToken)
 	_, err := notionClient.CreatePage(ctx, notion.CreatePageParams{
 		ParentType: notion.ParentTypeDatabase,
@@ -277,5 +288,13 @@ func checkCallerWhitelist(callerWhitelist []string) gin.HandlerFunc {
 		} else {
 			c.Next()
 		}
+	}
+}
+
+// From https://stackoverflow.com/a/45766707
+func timer(name string) func() {
+	start := time.Now()
+	return func() {
+		fmt.Printf("%s took %v\n", name, time.Since(start))
 	}
 }
